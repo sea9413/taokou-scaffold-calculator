@@ -280,18 +280,21 @@ document.addEventListener('DOMContentLoaded', function(){
 
 // ============ 配件对照表（套扣脚手架）============
 const PARTS = [
-  { type: '立杆', code: 'LG0.4',   size: '40cm',    weight: 1.640,  bundle: 500, matcher: ['0.4','0.40','40'] },
-  { type: '立杆', code: 'LG0.45',  size: '45cm',    weight: 2.130,  bundle: 400, matcher: ['0.45','0.450','45'] },
-  { type: '立杆', code: 'LG0.7',   size: '70cm',    weight: 2.960,  bundle: 300, matcher: ['0.7','0.70','70'] },
-  { type: '立杆', code: 'LG1.0',   size: '100cm',   weight: 4.280,  bundle: 200, matcher: ['1','1.0','1.00','1.000','100'] },
-  { type: '立杆', code: 'LG1.3',   size: '130cm',   weight: 5.270,  bundle: 200, matcher: ['1.3','1.30','130'] },
-  { type: '立杆', code: 'LG1.9',   size: '190cm',   weight: 7.590,  bundle: 100, matcher: ['1.9','1.90','190'] },
-  { type: '立杆', code: 'LG2.5',   size: '250cm',   weight: 9.910,  bundle: 100, matcher: ['2.5','2.50','250'] },
-  { type: '横杆', code: 'HG0.525', size: '52.5cm',  weight: 2.538,  bundle: 420, matcher: ['0.525','0.5250','52.5','525'] },
-  { type: '横杆', code: 'HG0.6',   size: '60cm',    weight: 2.110,  bundle: 135, matcher: ['0.6','0.60','60'] },
-  { type: '横杆', code: 'HG0.9',   size: '90cm',    weight: 3.110,  bundle: 210, matcher: ['0.9','0.90','90'] },
-  { type: '横杆', code: 'HG1.05',  size: '105cm',   weight: 3.610,  bundle: 289, matcher: ['1.05','1.050','105'] },
-  { type: '顶托', code: '顶托',    size: '套扣顶托', weight: 4.300, bundle: 300 },
+  // 立杆 7 种
+  { type: '立杆', code: 'LG-40cm',  size: '40cm',   weight: 1.64,  bundle: 500, matcher: ['0.4','0.40','40','0.3','300','LG300','LG0.3'] },
+  { type: '立杆', code: 'LG-45cm',  size: '45cm',   weight: 2.13,  bundle: 400, matcher: ['0.45','0.450','45','450','LG450','LG0.45'] },
+  { type: '立杆', code: 'LG-70cm',  size: '70cm',   weight: 2.96,  bundle: 300, matcher: ['0.7','0.70','70','600','LG600','LG0.6'] },
+  { type: '立杆', code: 'LG-100cm', size: '100cm',  weight: 4.28,  bundle: 200, matcher: ['1','1.0','1.00','100','900','LG900','LG0.9'] },
+  { type: '立杆', code: 'LG-130cm', size: '130cm',  weight: 5.27,  bundle: 200, matcher: ['1.3','1.30','130','1200','LG1200','LG1.2'] },
+  { type: '立杆', code: 'LG-190cm', size: '190cm',  weight: 7.59,  bundle: 100, matcher: ['1.9','1.90','190','1800','LG1800','LG1.8'] },
+  { type: '立杆', code: 'LG-250cm', size: '250cm',  weight: 9.91,  bundle: 100, matcher: ['2.5','2.50','250','2400','LG2400','LG2.4'] },
+  // 横杆 4 种
+  { type: '横杆', code: 'HG-52.5cm', size: '52.5cm', weight: 1.86,  bundle: 420, matcher: ['0.525','0.5250','52.5','525','475','HG475','HG0.475'], extra: { packWeight: 1066, packQty: 420, auxQty: 79, auxCode: 'HG-105cm' } },
+  { type: '横杆', code: 'HG-60cm',   size: '60cm',   weight: 2.11,  bundle: 135, matcher: ['0.6','0.60','60','550','HG550','HG0.55'] },
+  { type: '横杆', code: 'HG-90cm',   size: '90cm',   weight: 3.11,  bundle: 210, matcher: ['0.9','0.90','90','850','HG850','HG0.85'] },
+  { type: '横杆', code: 'HG-105cm',  size: '105cm',  weight: 3.61,  bundle: 289, matcher: ['1.05','1.050','105','1000','HG1000','HG1.0'] },
+  // 顶托 1 种
+  { type: '顶托', code: '顶托', size: '套扣顶托', weight: 4.3, bundle: 300 },
 ];
 
 // ============ 解析逻辑 ============
@@ -304,7 +307,7 @@ function parseInput(text) {
     let hit = false;
 
     // 立杆 / 横杆 / 顶托：米数可选（「横杆0.6」或「横杆0.55米」都能识别）
-    const typeMatch = line.match(/(立杆|横杆|顶托|螺丝头|LG|HG|L|H)/i);
+    const typeMatch = line.match(/(立杆|横杆|顶托|螺丝头|拉杆|LG|HG|L|H)/i);
     if (typeMatch) {
       const rawType = typeMatch[1];
       let typeName;
@@ -314,22 +317,26 @@ function parseInput(text) {
       else if (upper === 'LG') typeName = '立杆';
       else if (upper === 'HG') typeName = '横杆';
       else if (rawType === '顶托' || rawType === '螺丝头') typeName = '顶托';
+      else if (rawType === '拉杆') typeName = '横杆';
       else typeName = rawType;
       // 提取米数：数字 + 可选的(米|m|M)
       const meterMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:米|m|M)?/);
-      // 提取数量：找任意整数/小数
+      // 提取数量：优先匹配单位后面的数字
+      const unitQtyMatch = line.match(/(\d+(?:\.\d+)?)\s*(支|根|套|捆|扎|件|吊)/);
+      // 提取所有数字
       const numMatch = line.match(/(\d+(?:\.\d+)?)/g);
       if (meterMatch && numMatch && numMatch.length >= 1) {
         const meter = meterMatch[1];
-        // 数量 = 所有数字中不等于 meter 的那个（数值比较，防止 1 vs 1.0 误判）
+        // 数量优先：单位后面的数字 > 不等于 meter 的数字 > 0
         let qty = null;
-        for (const n of numMatch) {
-          if (parseFloat(n) !== parseFloat(meter)) { qty = parseFloat(n); break; }
+        if (unitQtyMatch) {
+          qty = parseFloat(unitQtyMatch[1]);
+        } else {
+          for (const n of numMatch) {
+            if (parseFloat(n) !== parseFloat(meter)) { qty = parseFloat(n); break; }
+          }
         }
-        if (qty === null) {
-          // 只有一个数字（只有规格没数量）→ 当作 0，让用户手动填
-          qty = 0;
-        }
+        if (qty === null) qty = 0;
 
         const candidates = PARTS.filter(p => p.type === typeName && p.matcher && p.matcher.includes(meter));
         // 精确匹配失败 → 尝试模糊：补小数点
@@ -585,6 +592,13 @@ function renderResult(matched, unmatched) {
       const hasBundle = bundleQty !== undefined || autoBundle !== undefined;
       const displayQty = bundleQty !== undefined ? (bundleQty * bundle) : qty;
       const perCol = part.bundle ? bundle : '-';
+      // HG-52.5cm 特殊处理：捆模式用整捆实重，支模式用单支重量
+      let subtotal;
+      if (part.extra && part.extra.packWeight && bundleQty !== undefined) {
+        subtotal = fmt(bundleQty * part.extra.packWeight / 1000); // 捆模式：整捆实重
+      } else {
+        subtotal = fmt(displayQty * part.weight / 1000); // 普通配件或支模式
+      }
       tr.innerHTML = `
         <td>${part.type}</td>
         <td>${part.code}</td>
@@ -593,7 +607,7 @@ function renderResult(matched, unmatched) {
         <td>${hasBundle
           ? '<span class="calc-qty">' + displayQty + '支</span>'
           : '<input type="number" class="qty" min="0" step="1" value="' + qty + '">'}</td>
-        <td class="subtotal">${fmt(displayQty * part.weight / 1000)}</td>
+        <td class="subtotal">${subtotal}</td>
       `;
       tbody.appendChild(tr);
     }
@@ -641,7 +655,12 @@ function onBundleChange(e) {
   const totalQty = bQty * (part.bundle || 1);
   const calcQty = tr.querySelector('.calc-qty');
   if (calcQty) calcQty.textContent = totalQty + '支';
-  tr.querySelector('.subtotal').textContent = fmt(totalQty * part.weight / 1000);
+  // HG-52.5cm 特殊处理
+  if (part.extra && part.extra.packWeight) {
+    tr.querySelector('.subtotal').textContent = fmt(bQty * part.extra.packWeight / 1000);
+  } else {
+    tr.querySelector('.subtotal').textContent = fmt(totalQty * part.weight / 1000);
+  }
   updateTotal();
 }
 
@@ -655,7 +674,14 @@ function updateTotal() {
     const bundleInp = tr.querySelector('input.bundle-qty');
     if (bundleInp) {
       const bQty = parseFloat(bundleInp.value);
-      if (!isNaN(bQty) && bQty > 0) total += part.weight * bQty * part.bundle;
+      if (!isNaN(bQty) && bQty > 0) {
+        // HG-52.5cm 特殊处理
+        if (part.extra && part.extra.packWeight) {
+          total += bQty * part.extra.packWeight;
+        } else {
+          total += part.weight * bQty * part.bundle;
+        }
+      }
       return;
     }
     // 普通支数模式
